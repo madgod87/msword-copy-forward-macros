@@ -1,0 +1,19 @@
+Option Explicit
+
+Private Sub UserForm_Initialize()
+    On Error Resume Next
+    Me.ListBox1.MultiSelect = fmMultiSelectMulti
+    On Error GoTo 0
+End Sub
+
+Private Sub CancelButton_Click()
+    Dim i As Long
+    For i = 0 To Me.ListBox1.ListCount - 1
+        Me.ListBox1.Selected(i) = False
+    Next i
+    Me.Hide
+End Sub
+
+Private Sub OKButton_Click()
+    Me.Hide
+End Sub

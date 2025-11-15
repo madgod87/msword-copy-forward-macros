@@ -1,0 +1,336 @@
+' === AdvancedEditorForm (FULL, clean, robust) ===
+Option Explicit
+
+' Required controls on the form (names must match):
+' - ListBox1        (ListBox)         MultiSelect = fmMultiSelectMulti, ColumnCount=2, ColumnWidths e.g. "320 pt;0 pt"
+' - txtInline       (TextBox)
+' - btnAdd          (CommandButton)   Caption "Add"
+' - btnEdit         (CommandButton)   Caption "Apply Edit"
+' - btnDelete       (CommandButton)   Caption "Delete"
+' - btnMoveUp       (CommandButton)   Caption "Move Up"
+' - btnMoveDown     (CommandButton)   Caption "Move Down"
+' - btnSaveOrder    (CommandButton)   Caption "Save Order"
+' - btnRefresh      (CommandButton)   Caption "Refresh"
+' - btnClose        (CommandButton)   Caption "Close"
+' Optional: a Label named lblStatus for short messages (not required).
+
+Private Sub UserForm_Initialize()
+    On Error Resume Next
+    Me.ListBox1.MultiSelect = fmMultiSelectMulti
+    Me.ListBox1.ColumnCount = 2
+    ' Keep second column hidden to store numeric key
+    Me.ListBox1.ColumnWidths = "320 pt;0 pt"
+    On Error GoTo 0
+    RefreshEditorList
+    txtInline.Text = ""
+    If ControlExists("lblStatus") Then lblStatus.Caption = ""
+End Sub
+
+' ---------- Utilities ----------
+' Return True if a control with the given name exists on the form
+Private Function ControlExists(ctrlName As String) As Boolean
+    Dim c As Control
+    On Error Resume Next
+    Set c = Me.Controls(ctrlName)
+    ControlExists = (Err.Number = 0 And Not c Is Nothing)
+    On Error GoTo 0
+End Function
+
+' Return the index of the first selected item, or -1 if none
+Private Function GetFirstSelectedIndex() As Long
+    Dim i As Long
+    GetFirstSelectedIndex = -1
+    For i = 0 To Me.ListBox1.ListCount - 1
+        If Me.ListBox1.Selected(i) Then
+            GetFirstSelectedIndex = i
+            Exit Function
+        End If
+    Next i
+End Function
+
+' Count selected items
+Private Function CountSelectedItems() As Long
+    Dim i As Long, c As Long
+    c = 0
+    For i = 0 To Me.ListBox1.ListCount - 1
+        If Me.ListBox1.Selected(i) Then c = c + 1
+    Next i
+    CountSelectedItems = c
+End Function
+
+' ---------- Refresh UI ----------
+Public Sub RefreshEditorList()
+    Dim keys As Variant, i As Long
+    If itemsDict Is Nothing Then InitData
+    Me.ListBox1.Clear
+    keys = GetSortedNumericKeys(itemsDict)
+    If Not IsArray(keys) Then Exit Sub
+    For i = LBound(keys) To UBound(keys)
+        Dim k As String, v As String
+        k = keys(i)
+        v = itemsDict(k)
+        Me.ListBox1.AddItem (k & " - " & v)
+        Me.ListBox1.List(Me.ListBox1.ListCount - 1, 1) = k
+    Next i
+    txtInline.Text = ""
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Loaded " & Me.ListBox1.ListCount & " items."
+End Sub
+
+' ---------- Add item ----------
+Private Sub btnAdd_Click()
+    Dim kStr As String, kNum As Long, val As String
+    kStr = Trim(InputBox("Enter numeric key for new item (integer >=1). Leave blank to append at end:", "Add item - key"))
+    If kStr = vbNullString Then
+        ' append at end
+        If itemsDict Is Nothing Then InitData
+        Dim lastKey As Long, sorted As Variant
+        sorted = GetSortedNumericKeys(itemsDict)
+        If UBound(sorted) >= LBound(sorted) Then
+            lastKey = CLng(sorted(UBound(sorted)))
+        Else
+            lastKey = 0
+        End If
+        kNum = lastKey + 1
+    Else
+        If Not IsNumeric(kStr) Then
+            MsgBox "Key must be numeric.", vbExclamation: Exit Sub
+        End If
+        kNum = CLng(kStr)
+        If kNum < 1 Then MsgBox "Key must be >=1.", vbExclamation: Exit Sub
+    End If
+
+    val = Trim(InputBox("Enter display text/value for key " & kNum & ":", "Add item - value"))
+    If val = vbNullString Then MsgBox "No value provided. Cancelled.": Exit Sub
+
+    ' Uses module helper (shifts existing keys >= kNum)
+    AddDataItemAtKey kNum, val
+
+    RefreshEditorList
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Added key " & kNum
+End Sub
+
+' ---------- Delete (multi-select supported) ----------
+Private Sub btnDelete_Click()
+    If Me.ListBox1.ListCount = 0 Then Exit Sub
+    Dim selCount As Long
+    selCount = CountSelectedItems
+    If selCount = 0 Then
+        MsgBox "Select one or more items to delete first.", vbInformation: Exit Sub
+    End If
+
+    Dim i As Long, keysToDelete As Collection
+    Set keysToDelete = New Collection
+    For i = 0 To Me.ListBox1.ListCount - 1
+        If Me.ListBox1.Selected(i) Then keysToDelete.Add Me.ListBox1.List(i, 1)
+    Next i
+
+    Dim prompt As String, k As Variant
+    prompt = "Delete these " & keysToDelete.count & " items?" & vbCrLf & vbCrLf
+    For Each k In keysToDelete
+        prompt = prompt & k & " => " & itemsDict(CStr(k)) & vbCrLf
+    Next k
+
+    If MsgBox(prompt, vbYesNo + vbCritical, "Confirm Delete") <> vbYes Then Exit Sub
+
+    ' Backup silently before delete
+    BackupDatasetFileSilent
+
+    ' Remove keys
+    For Each k In keysToDelete
+        If itemsDict.Exists(CStr(k)) Then itemsDict.Remove CStr(k)
+    Next k
+
+    SaveDictToFile itemsDict, GetDataFilePath
+    RefreshEditorList
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Deleted " & keysToDelete.count & " items."
+End Sub
+
+' ---------- Inline editing ----------
+Private Sub ListBox1_Click()
+    Dim idx As Long
+    idx = GetFirstSelectedIndex()
+    If idx = -1 Then
+        txtInline.Text = ""
+        Exit Sub
+    End If
+    Dim keyStr As String
+    keyStr = Me.ListBox1.List(idx, 1) ' hidden key
+    If itemsDict Is Nothing Then InitData
+    If itemsDict.Exists(CStr(keyStr)) Then
+        txtInline.Text = itemsDict(CStr(keyStr))
+    Else
+        txtInline.Text = ""
+    End If
+End Sub
+
+Private Sub btnEdit_Click()
+    Dim idx As Long
+    idx = GetFirstSelectedIndex()
+    If idx = -1 Then
+        MsgBox "Select one item to edit first.", vbInformation: Exit Sub
+    End If
+
+    If CountSelectedItems > 1 Then
+        MsgBox "Please select only one item to edit inline.", vbInformation: Exit Sub
+    End If
+
+    Dim keyStr As String
+    keyStr = Me.ListBox1.List(idx, 1)
+
+    Dim newVal As String
+    newVal = Trim(txtInline.Text)
+    If newVal = vbNullString Then
+        MsgBox "Value cannot be empty. Please enter text in the box before clicking Apply Edit.", vbExclamation
+        txtInline.SetFocus
+        Exit Sub
+    End If
+
+    itemsDict(CStr(keyStr)) = newVal
+    SaveDictToFile itemsDict, GetDataFilePath
+    RefreshEditorList
+
+    ' reselect updated item
+    Dim j As Long
+    For j = 0 To Me.ListBox1.ListCount - 1
+        If Me.ListBox1.List(j, 1) = keyStr Then
+            Me.ListBox1.ListIndex = j
+            Exit For
+        End If
+    Next j
+
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Edited key " & keyStr
+End Sub
+
+' ---------- Move Up / Move Down (multi-select supported) ----------
+Private Sub btnMoveUp_Click()
+    MoveSelectedItems -1
+End Sub
+
+Private Sub btnMoveDown_Click()
+    MoveSelectedItems 1
+End Sub
+
+Private Sub MoveSelectedItems(ByVal direction As Long)
+    ' direction = -1 for up, +1 for down
+    Dim n As Long: n = Me.ListBox1.ListCount
+    If n = 0 Then Exit Sub
+
+    ' collect selected indexes (in array) preserving order
+    Dim selIdxs() As Long, c As Long, i As Long
+    c = 0
+    For i = 0 To n - 1
+        If Me.ListBox1.Selected(i) Then
+            ReDim Preserve selIdxs(0 To c)
+            selIdxs(c) = i
+            c = c + 1
+        End If
+    Next i
+    If c = 0 Then Exit Sub
+
+    ' build string array of visible rows
+    Dim textRows() As String
+    ReDim textRows(0 To n - 1)
+    For i = 0 To n - 1
+        textRows(i) = Me.ListBox1.List(i, 0)
+    Next i
+
+    Dim idx As Long
+    If direction = -1 Then
+        ' move up: process selected indexes in ascending order
+        For i = 0 To UBound(selIdxs)
+            idx = selIdxs(i)
+            If idx > 0 Then
+                Dim tmp As String
+                tmp = textRows(idx - 1)
+                textRows(idx - 1) = textRows(idx)
+                textRows(idx) = tmp
+            End If
+        Next i
+    Else
+        ' move down: process selected indexes in descending order
+        For i = UBound(selIdxs) To 0 Step -1
+            idx = selIdxs(i)
+            If idx < n - 1 Then
+                Dim tmp2 As String
+                tmp2 = textRows(idx + 1)
+                textRows(idx + 1) = textRows(idx)
+                textRows(idx) = tmp2
+            End If
+        Next i
+    End If
+
+    ' Rebuild listbox content (preserve hidden keys by parsing "k - value")
+    Me.ListBox1.Clear
+    For i = 0 To n - 1
+        Me.ListBox1.AddItem textRows(i)
+        Dim parts As Variant
+        parts = Split(textRows(i), " - ", 2)
+        If UBound(parts) >= 1 Then
+            Me.ListBox1.List(Me.ListBox1.ListCount - 1, 1) = Trim(parts(0))
+        Else
+            Me.ListBox1.List(Me.ListBox1.ListCount - 1, 1) = ""
+        End If
+    Next i
+
+    ' Rebuild itemsDict from the listbox order and renumber keys 1..N
+    RebuildDictFromListBoxAndRenumber
+
+    ' Refresh UI
+    RefreshEditorList
+
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Moved selection."
+End Sub
+
+' ---------- Save Order (renumber sequentially 1..N) ----------
+Private Sub btnSaveOrder_Click()
+    If Me.ListBox1.ListCount = 0 Then Exit Sub
+    If MsgBox("Rebuild keys sequentially from current list order (1..N)?", vbYesNo + vbQuestion) <> vbYes Then Exit Sub
+    RebuildDictFromListBoxAndRenumber
+    SaveDictToFile itemsDict, GetDataFilePath
+    RefreshEditorList
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Order saved and keys renumbered."
+End Sub
+
+' Rebuild itemsDict from current ListBox order and set keys 1..N
+Private Sub RebuildDictFromListBoxAndRenumber()
+    Dim newDict As Object
+    Set newDict = CreateObject("Scripting.Dictionary")
+    Dim i As Long, n As Long
+    n = Me.ListBox1.ListCount
+    For i = 0 To n - 1
+        Dim valueText As String, parts As Variant, v As String
+        valueText = Me.ListBox1.List(i, 0)
+        parts = Split(valueText, " - ", 2)
+        If UBound(parts) >= 1 Then
+            v = parts(1)
+        Else
+            v = valueText
+        End If
+        newDict.Add CStr(i + 1), v
+    Next i
+    Set itemsDict = newDict
+    SaveDictToFile itemsDict, GetDataFilePath
+End Sub
+
+' ---------- Refresh button ----------
+Private Sub btnRefresh_Click()
+    RefreshEditorList
+    If ControlExists("lblStatus") Then lblStatus.Caption = "Refreshed."
+End Sub
+
+' ---------- Close ----------
+Private Sub btnClose_Click()
+    Me.Hide
+End Sub
+
+' Double-click to focus textbox for quick edit
+Private Sub ListBox1_DblClick(ByVal Cancel As MSForms.ReturnBoolean)
+    Dim idx As Long
+    idx = GetFirstSelectedIndex()
+    If idx = -1 Then Exit Sub
+    txtInline.SetFocus
+End Sub
+
+' End of AdvancedEditorForm code
+' ===============================================
+

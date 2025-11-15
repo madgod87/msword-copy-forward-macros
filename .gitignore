@@ -1,0 +1,7 @@
+# Ignore Office temp files and other OS files
+Thumbs.db
+Desktop.ini
+~$*
+*.log
+.DS_Store
+*.dotm  # optional if you don't want Normal.dotm checked in
