@@ -1,145 +1,120 @@
 # 📄 Word Forwarding List Manager (VBA for Microsoft Word)
 
-![Logo](logo.png)
+![Banner](banner_1200x630.png)
 
 A complete Microsoft Word **VBA automation system** for generating and managing a persistent, hierarchical **"Copy forwarded to:"** list.
+
+Very useful for Government Offices, Corporate Offices, Administrative Departments, and anywhere forwarding memos or orders is required.
 
 Includes:
 
 - 🔧 **Persistent dataset** stored in `%APPDATA%`
 - 📝 **Advanced Editor UI** (Add / Edit / Delete / Move / Renumber)
-- 📥 **Selection form** to insert forwarding lines into Word
+- 📥 **Multi-select forwarding list insertion**
 - ♻️ **Automatic autosave & auto-load**
-- 📌 **Special rules** for ADM, Joint BDO, Gram Panchayat, Compliance items
+- 📌 **Special rules** for ADM, Joint BDO, Gram Panchayat, Compliance entries
+- 🧱 Modular code + event handlers + forms
 
 ---
 
-# ⭐ Features Overview
+## ⭐ Features Overview
 
 | Feature | Description |
 |--------|-------------|
-| Persistent Dataset | Stored in `%APPDATA%\ForwardList` |
-| Advanced Editor | Full UI for inline edit, reorder, delete, add items |
-| Word Insertion Macro | Inserts correctly numbered forwarding list |
-| Autosave | Saves dataset automatically on Word close |
-| Autosync | Reloads dataset on Word open |
-| Backup System | Timestamped backups on delete/reset |
-| Clean Architecture | Modules, class handler, and 3 UserForms |
+| **Persistent Dataset** | Stored in `%APPDATA%\ForwardList\WordItemsDataset.txt` |
+| **Advanced Editor** | Add, edit, move, delete, renumber |
+| **Forwarding List Inserter** | Generates perfect numbering |
+| **Automatic Save** | Saves dataset on Word close |
+| **Automatic Load** | Loads dataset when Word starts |
+| **Backups** | Timestamped backups for safety |
+| **Clean Architecture** | 1 Module, 1 Class, 3 Forms |
 
 ---
 
-# 📦 Repository Layout
+## 📦 Directory Structure
 
 ```
 word-forward-macros/
 ├─ src/
 │  ├─ ModuleForwardList.bas
 │  ├─ AppEventHandler.cls
-│  ├─ UserForm1.txt
-│  ├─ UserForm2.txt
-│  └─ AdvancedEditorForm.txt
+│  ├─ UserForm1.frm
+│  ├─ UserForm2.frm
+│  └─ AdvancedEditorForm.frm
+├─ assets/
+│  ├─ banner_1200x630.png
+│  └─ ws_logo.png
 ├─ README.md
-├─ LICENSE
-└─ .gitignore
+└─ LICENSE
 ```
 
 ---
 
-# 🚀 Quick Installation
+## 🚀 Quick Installation
 
-> For a **full setup guide**, see the section below.
-
-1. Open Microsoft Word → **Alt + F11**
-2. Insert → **Module** → paste `ModuleForwardList.bas`
-3. Insert → **Class Module** → rename to `AppEventHandler` → paste `AppEventHandler.cls`
-4. Insert → **UserForms**
-   - `UserForm1` → paste code, add controls
-   - `UserForm2` → paste code, add controls
-   - `AdvancedEditorForm` → add all required controls and paste code
-5. Save Word template or Normal.dotm
-6. Run macro: **`InitAppEventHandler`**
-
----
-
-# 📘 Full Installation Guide
-
-## 1️⃣ Import Main Module
-Insert → Module → paste content of `src/ModuleForwardList.bas`.
-
----
-
-## 2️⃣ Add Application Event Handler
-Insert → Class Module → Rename to `AppEventHandler` → Paste `src/AppEventHandler.cls`.
-
----
-
-## 3️⃣ Create UserForm1 (Selection Form)
-
-### Controls to Add
-
-| Type | Name | Caption | Notes |
-|------|------|---------|-------|
-| ListBox | `ListBox1` | — | MultiSelect |
-| CommandButton | `OKButton` | OK | Saves selection |
-| CommandButton | `CancelButton` | Cancel | Clear + close |
-
-Paste: `src/UserForm1.txt`.
-
----
-
-## 4️⃣ Create UserForm2 (ADM Options)
-
-### Controls to Add
-
-| Type | Name | Caption |
-|------|------|---------|
-| ListBox | `ListBox2` | — |
-| CommandButton | `CommandButton3` | OK |
-| CommandButton | `CommandButton4` | Cancel |
-
-Paste: `src/UserForm2.txt`.
-
----
-
-## 5️⃣ Create AdvancedEditorForm (Main Editor)
-
-### Controls Required
-
-| Control | Name | Purpose |
-|--------|------|----------|
-| ListBox | `ListBox1` | Shows list of `key - value` |
-| TextBox | `txtInline` | Inline editor |
-| Label | `lblStatus` | Status messages |
-| CommandButton | `btnAdd` | Add item |
-| CommandButton | `btnEdit` | Apply edit |
-| CommandButton | `btnDelete` | Multi-delete |
-| CommandButton | `btnMoveUp` | Move selection up |
-| CommandButton | `btnMoveDown` | Move selection down |
-| CommandButton | `btnSaveOrder` | Renumber keys |
-| CommandButton | `btnRefresh` | Reload dataset |
-| CommandButton | `btnClose` | Close editor |
-
-### Suggested Coordinates
+1. Open Word → **Alt + F11**
+2. Insert → **Module** → paste content of `ModuleForwardList.bas`
+3. Insert → **Class Module** → rename to: **AppEventHandler**
+4. Insert → **UserForms**  
+   Create:  
+   - UserForm1  
+   - UserForm2  
+   - AdvancedEditorForm  
+5. Set **all required control properties** (listed below)
+6. Save → Restart Word
+7. Run:
 
 ```
-Form size: Width=520, Height=420
-
-ListBox1:  Left=12, Top=12, Width=380, Height=270
-txtInline: Left=12, Top=288, Width=380, Height=24
-lblStatus: Left=12, Top=320, Width=380, Height=20
-
-Right column buttons:
-btnAdd       Left=404 Top=12
-btnMoveUp    Left=404 Top=48
-btnMoveDown  Left=404 Top=84
-btnDelete    Left=404 Top=120
-btnEdit      Left=404 Top=156
-btnSaveOrder Left=404 Top=192
-btnRefresh   Left=404 Top=228
-btnClose     Left=404 Top=264
+InitAppEventHandler
 ```
 
-### Layout Diagram
+---
+
+## 🟦 UserForm1 — Selection Form
+
+### Controls:
+
+| Type | Name | Properties |
+|------|------|------------|
+| ListBox | `ListBox1` | MultiSelect = `fmMultiSelectMulti` |
+| CommandButton | `OKButton` | Caption = OK |
+| CommandButton | `CancelButton` | Caption = Cancel |
+
+### Required in code:
+
+```
+ListBox1.ColumnCount = 2
+ListBox1.ColumnWidths = "320 pt;0 pt"
+```
+
+---
+
+## 🟩 UserForm2 — ADM Options
+
+### Controls:
+
+| Type | Name | Properties |
+|------|------|------------|
+| ListBox | `ListBox2` | MultiSelect = `fmMultiSelectMulti` |
+| CommandButton | `CommandButton3` | Caption = OK |
+| CommandButton | `CommandButton4` | Caption = Cancel |
+
+---
+
+## 🟥 AdvancedEditorForm — Main Editor UI
+
+### Required Controls:
+
+| Type | Name | Properties |
+|------|------|------------|
+| ListBox | `ListBox1` | MultiSelect = `fmMultiSelectMulti`<br>ColumnCount = 2<br>ColumnWidths = "320 pt;0 pt" |
+| TextBox | `txtInline` | Single-line |
+| Label | `lblStatus` | Caption="" |
+| CommandButtons | `btnAdd`, `btnEdit`, `btnDelete`, `btnMoveUp`, `btnMoveDown`, `btnSaveOrder`, `btnRefresh`, `btnClose` | — |
+
+---
+
+## ✏ Example Layout
 
 ```
 +--------------------------------------------------------------+
@@ -150,128 +125,71 @@ btnClose     Left=404 Top=264
 | txtInline: [..............................................]  |
 | lblStatus: (Loaded X items.)                                 |
 |                                                              |
-|  [Add]  [Move Up]  [Move Down]  [Delete]  [Apply Edit]       |
-|  [Save Order]  [Refresh]  [Close]                            |
+| [Add] [Move Up] [Move Down] [Delete] [Apply Edit]            |
+| [Save Order] [Refresh] [Close]                               |
 +--------------------------------------------------------------+
 ```
 
 ---
 
-# 📚 How to Use
+## 📄 Forwarding List Generator
 
-## 🛠 Manage Dataset
 Run:
-```
-ShowAdvancedEditor
-```
 
-You can:
-- Add items  
-- Edit inline  
-- Delete  
-- Multi-delete  
-- Move Up/Down  
-- Save Order  
-
----
-
-## 📄 Insert Forwarding List
-Run:
 ```
 ShowSelectionFormAndInsert
 ```
 
-Macro handles:
-- ADM prompts  
-- Joint BDO count  
-- Gram Panchayat counts  
-- “To … For Compliance” (individual lines)  
+Inserts:
+
+- ADM Options (Gen/Dev/LR/ZP)
+- Joint BDO count
+- Gram Panchayat number ranges
+- To … For Compliance → individual entries
+- Proper 1–N numbering
 
 ---
 
-# 🔍 Special-case Behavior Summary
+## 💾 Persistent Dataset
 
-### 🟦 Additional District Magistrate
-Options:
-```
-Gen, Dev, LR, ZP
-```
+Location:
 
-### 🟨 Joint BDO
-- If count = 1 → prints `12)`
-- If count > 1 → prints range like `12–14)`
-
-### 🟩 Gram Panchayat Groups
-Same numbering rules.
-
-### 🟧 “To … For Compliance”
-Each entry printed individually:
-```
-6) To ...
-7) To ...
-8) To ...
-```
-
----
-
-# 💾 Dataset Persistence
-
-Primary file:
 ```
 %APPDATA%\ForwardList\WordItemsDataset.txt
 ```
 
-Backups:
+Backup format:
+
 ```
-WordItemsDataset_backup_YYYY-MM-DD_HHMMSS.txt
+WordItemsDataset_backup_YYYYMMDD_HHMMSS.txt
 ```
 
 Format:
+
 ```
 key|value
 ```
-(`|` escaped as `||` inside values)
 
 ---
 
-# ❗ Troubleshooting
+## ❗ Troubleshooting
 
-### 🚫 lblStatus not found
-Add a Label named `lblStatus`.
-
-### 🚫 Event handler not firing
-Class name **must** be `AppEventHandler`.
-
-### 🚫 Wrong numbering
-After moving items, click **Save Order**.
-
-### 🚫 Textbox doesn't fill
-Ensure:
-```
-ListBox1.ColumnCount = 2
-ListBox1.ColumnWidths = "320 pt;0 pt"
-```
+| Issue | Fix |
+|-------|------|
+| Inline edit not updating | Ensure ListBox1 ColumnCount = 2 |
+| Nothing saves | Ensure class module name = **AppEventHandler** |
+| Numbering wrong | Use **Save Order** button |
+| Status label missing | Add `lblStatus` |
 
 ---
 
-# 🤝 Contributing
-Pull Requests welcome.
+## ⭐ Contribute
+
+Pull requests welcome.
 
 ---
 
-# 📄 License
-MIT License — see LICENSE.
+## 📄 License
 
----
+MIT License.
 
-# 🖼 Screenshot placeholders
-
-```
-docs/images/editor.png
-docs/images/selection-form.png
-docs/images/insertion-demo.png
-```
-
----
-
-# ⭐ If you find this useful, star the repository!
